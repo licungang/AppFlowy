@@ -235,6 +235,7 @@ class _FilePreviewRender extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    debugPrint("[DEBUG] Progress(${progress?.fileProgress.progress})");
     if (progress != null &&
         progress!.uploadState != MediaUploadState.completed) {
       return Container(
@@ -249,7 +250,7 @@ class _FilePreviewRender extends StatelessWidget {
             ),
             Center(
               child: FlowyText(
-                '${progress!.fileProgress.progress.floor() * 100}%',
+                '${(progress!.fileProgress.progress * 100).floor()}%',
                 fontSize: 8,
               ),
             ),

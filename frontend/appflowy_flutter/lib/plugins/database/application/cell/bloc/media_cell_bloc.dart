@@ -189,13 +189,22 @@ class MediaCellBloc extends Bloc<MediaCellEvent, MediaCellState> {
                 return;
               }
 
-              mediaUploadProgress ??= MediaUploadProgress(
-                fileId: id,
-                uploadState: progress.progress >= 1
-                    ? MediaUploadState.completed
-                    : MediaUploadState.uploading,
-                fileProgress: progress,
-              );
+              if (mediaUploadProgress == null) {
+                mediaUploadProgress = MediaUploadProgress(
+                  fileId: id,
+                  uploadState: progress.progress >= 1
+                      ? MediaUploadState.completed
+                      : MediaUploadState.uploading,
+                  fileProgress: progress,
+                );
+              } else {
+                mediaUploadProgress = mediaUploadProgress.copyWith(
+                  uploadState: progress.progress >= 1
+                      ? MediaUploadState.completed
+                      : MediaUploadState.uploading,
+                  fileProgress: progress,
+                );
+              }
 
               final uploadProgress = [...state.uploadProgress];
               uploadProgress
@@ -347,4 +356,15 @@ class MediaUploadProgress {
   final String fileId;
   final MediaUploadState uploadState;
   final FileProgress fileProgress;
+
+  MediaUploadProgress copyWith({
+    MediaUploadState? uploadState,
+    FileProgress? fileProgress,
+  }) {
+    return MediaUploadProgress(
+      fileId: fileId,
+      uploadState: uploadState ?? this.uploadState,
+      fileProgress: fileProgress ?? this.fileProgress,
+    );
+  }
 }
