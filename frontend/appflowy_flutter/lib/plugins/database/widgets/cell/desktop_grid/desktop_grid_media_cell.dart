@@ -45,8 +45,8 @@ class GridMediaCellSkin extends IEditableMediaCellSkin {
         final wrapContent = context.read<MediaCellBloc>().wrapContent;
         final List<Widget> children = state.files.map<Widget>(
           (file) {
-            final fileUploadProgress = state.uploadProgress
-                .firstWhereOrNull((u) => u.fileId == file.id);
+            final fileUploadProgress =
+                state.uploadProgress.firstWhereOrNull((u) => u.url == file.url);
 
             return GestureDetector(
               onTap: () => _openOrExpandFile(context, file, state.files),

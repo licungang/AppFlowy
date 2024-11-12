@@ -171,27 +171,30 @@ class MediaCellBloc extends Bloc<MediaCellEvent, MediaCellState> {
             rowId: cellController.rowId,
             cover: cover,
           ),
-          onProgressUpdate: (id) {
-            final FileProgress? progress = _progressNotifiers[id]?.value;
+          onProgressUpdate: (url) {
+            final FileProgress? progress = _progressNotifiers[url]?.value;
             if (progress != null) {
               MediaUploadProgress? mediaUploadProgress =
-                  state.uploadProgress.firstWhereOrNull((u) => u.fileId == id);
+                  state.uploadProgress.firstWhereOrNull((u) => u.url == url);
 
               if (progress.error != null) {
                 // Remove file from cell
-                add(MediaCellEvent.removeFile(fileId: id));
-                _removeNotifier(id);
+                final files = state.files.where((f) => f.url == url);
+                for (final file in files) {
+                  add(MediaCellEvent.removeFile(fileId: file.id));
+                }
+                _removeNotifier(url);
 
                 // Remove progress
                 final uploadProgress = [...state.uploadProgress];
-                uploadProgress.removeWhere((u) => u.fileId == id);
+                uploadProgress.removeWhere((u) => u.url == url);
                 emit(state.copyWith(uploadProgress: uploadProgress));
                 return;
               }
 
               if (mediaUploadProgress == null) {
                 mediaUploadProgress = MediaUploadProgress(
-                  fileId: id,
+                  url: url,
                   uploadState: progress.progress >= 1
                       ? MediaUploadState.completed
                       : MediaUploadState.uploading,
@@ -208,7 +211,7 @@ class MediaCellBloc extends Bloc<MediaCellEvent, MediaCellState> {
 
               final uploadProgress = [...state.uploadProgress];
               uploadProgress
-                ..removeWhere((u) => u.fileId == id)
+                ..removeWhere((u) => u.url == url)
                 ..add(mediaUploadProgress);
 
               emit(state.copyWith(uploadProgress: uploadProgress));
@@ -250,13 +253,13 @@ class MediaCellBloc extends Bloc<MediaCellEvent, MediaCellState> {
 
     final notifier = _fileStorageService.onFileProgress(fileUrl: file.url);
     _progressNotifiers[file.id] = notifier;
-    notifier.addListener(() => _onProgressChanged(file.id));
+    notifier.addListener(() => _onProgressChanged(file.url));
 
-    add(MediaCellEvent.onProgressUpdate(file.id));
+    add(MediaCellEvent.onProgressUpdate(file.url));
   }
 
-  void _onProgressChanged(String id) =>
-      add(MediaCellEvent.onProgressUpdate(id));
+  void _onProgressChanged(String url) =>
+      add(MediaCellEvent.onProgressUpdate(url));
 
   /// Removes and disposes of a progress notifier if found
   ///
@@ -316,8 +319,7 @@ class MediaCellEvent with _$MediaCellEvent {
 
   const factory MediaCellEvent.setCover(RowCoverPB cover) = _SetCover;
 
-  const factory MediaCellEvent.onProgressUpdate(String fileId) =
-      _OnProgressUpdate;
+  const factory MediaCellEvent.onProgressUpdate(String url) = _OnProgressUpdate;
 }
 
 @freezed
@@ -348,12 +350,12 @@ enum MediaUploadState { uploading, completed }
 
 class MediaUploadProgress {
   const MediaUploadProgress({
-    required this.fileId,
+    required this.url,
     required this.uploadState,
     required this.fileProgress,
   });
 
-  final String fileId;
+  final String url;
   final MediaUploadState uploadState;
   final FileProgress fileProgress;
 
@@ -362,7 +364,7 @@ class MediaUploadProgress {
     FileProgress? fileProgress,
   }) {
     return MediaUploadProgress(
-      fileId: fileId,
+      url: url,
       uploadState: uploadState ?? this.uploadState,
       fileProgress: fileProgress ?? this.fileProgress,
     );
