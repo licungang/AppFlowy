@@ -1711,6 +1711,7 @@
       "toggleList": "Toggle list",
       "emptyToggleHeading": "Empty toggle heading {}. Click to add content",
       "emptyToggleList": "Empty toggle list. Click to add content",
+      "emptyToggleHeadingWeb": "Empty toggle heading {level}. Click to add content",
       "quoteList": "Quote list",
       "numberedList": "Numbered list",
       "bulletedList": "Bulleted list",

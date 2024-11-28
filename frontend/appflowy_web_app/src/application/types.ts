@@ -940,6 +940,7 @@ export interface ViewComponentProps {
   isTemplateThumb?: boolean;
   loadViews?: (variant?: UIVariant) => Promise<View[] | undefined>;
   onWordCountChange?: (viewId: string, props: TextCount) => void;
+  uploadFile?: (file: File) => Promise<string>;
 }
 
 export interface CreatePagePayload {
