@@ -1,7 +1,5 @@
-import 'package:appflowy/plugins/document/presentation/editor_plugins/table/shared_widget.dart';
-import 'package:appflowy/plugins/document/presentation/editor_plugins/table/simple_table_constants.dart';
-import 'package:appflowy/plugins/document/presentation/editor_plugins/table/simple_table_more_action.dart';
-import 'package:appflowy/plugins/document/presentation/editor_plugins/table/table_operations/table_node_extension.dart';
+import 'package:appflowy/plugins/document/presentation/editor_plugins/simple_table/_shared_widget.dart';
+import 'package:appflowy/plugins/document/presentation/editor_plugins/simple_table/simple_table.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -61,10 +59,11 @@ class SimpleTableCellBlockWidget extends BlockComponentStatefulWidget {
 
   @override
   State<SimpleTableCellBlockWidget> createState() =>
-      _SimpleTableCellBlockWidgetState();
+      SimpleTableCellBlockWidgetState();
 }
 
-class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
+@visibleForTesting
+class SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
     with
         BlockComponentConfigurable,
         BlockComponentTextDirectionMixin,
@@ -78,32 +77,40 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
   @override
   late EditorState editorState = context.read<EditorState>();
 
-  late SimpleTableContext simpleTableContext =
-      context.read<SimpleTableContext>();
+  late SimpleTableContext? simpleTableContext =
+      context.read<SimpleTableContext?>();
+
+  bool isEditing = false;
 
   @override
   void initState() {
     super.initState();
 
-    simpleTableContext.isSelectingTable.addListener(_onSelectingTableChanged);
+    simpleTableContext?.isSelectingTable.addListener(_onSelectingTableChanged);
     node.parentTableNode?.addListener(_onSelectingTableChanged);
+    editorState.selectionNotifier.addListener(_onSelectionChanged);
   }
 
   @override
   void dispose() {
-    simpleTableContext.isSelectingTable.removeListener(
+    simpleTableContext?.isSelectingTable.removeListener(
       _onSelectingTableChanged,
     );
     node.parentTableNode?.removeListener(_onSelectingTableChanged);
+    editorState.selectionNotifier.removeListener(_onSelectionChanged);
 
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (simpleTableContext == null) {
+      return const SizedBox.shrink();
+    }
+
     return MouseRegion(
       hitTestBehavior: HitTestBehavior.opaque,
-      onEnter: (event) => simpleTableContext.hoveringTableCell.value = node,
+      onEnter: (event) => simpleTableContext!.hoveringTableCell.value = node,
       child: Stack(
         clipBehavior: Clip.none,
         children: [
@@ -134,11 +141,15 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
   }
 
   Widget _buildCell() {
+    if (simpleTableContext == null) {
+      return const SizedBox.shrink();
+    }
+
     return ValueListenableBuilder(
-      valueListenable: simpleTableContext.selectingColumn,
+      valueListenable: simpleTableContext!.selectingColumn,
       builder: (context, selectingColumn, child) {
         return ValueListenableBuilder(
-          valueListenable: simpleTableContext.selectingRow,
+          valueListenable: simpleTableContext!.selectingRow,
           builder: (context, selectingRow, _) {
             return DecoratedBox(
               decoration: _buildDecoration(),
@@ -257,6 +268,8 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
       return _buildColumnBorder();
     } else if (isCellInSelectedRow) {
       return _buildRowBorder();
+    } else if (isEditing) {
+      return _buildEditingBorder();
     } else {
       return _buildCellBorder();
     }
@@ -283,28 +296,14 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
   /// the border wrapping the cell 2 and cell 4 is the column border
   Border _buildColumnBorder() {
     return Border(
-      left: BorderSide(
-        color: Theme.of(context).colorScheme.primary,
-        width: 2,
-      ),
-      right: BorderSide(
-        color: Theme.of(context).colorScheme.primary,
-        width: 2.5,
-      ),
+      left: _buildHighlightBorderSide(),
+      right: _buildHighlightBorderSide(),
       top: node.rowIndex == 0
-          ? BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 2,
-            )
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-            ),
+          ? _buildHighlightBorderSide()
+          : _buildDefaultBorderSide(),
       bottom: node.rowIndex + 1 == node.parentTableNode?.rowLength
-          ? BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 2,
-            )
-          : BorderSide.none,
+          ? _buildHighlightBorderSide()
+          : _buildDefaultBorderSide(),
     );
   }
 
@@ -318,35 +317,38 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
   /// the border wrapping the cell 1 and cell 2 is the row border
   Border _buildRowBorder() {
     return Border(
-      top: BorderSide(
-        color: Theme.of(context).colorScheme.primary,
-        width: 2,
-      ),
-      bottom: BorderSide(
-        color: Theme.of(context).colorScheme.primary,
-        width: 2.5,
-      ),
+      top: _buildHighlightBorderSide(),
+      bottom: _buildHighlightBorderSide(),
       left: node.columnIndex == 0
-          ? BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 2,
-            )
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-            ),
+          ? _buildHighlightBorderSide()
+          : _buildDefaultBorderSide(),
       right: node.columnIndex + 1 == node.parentTableNode?.columnLength
-          ? BorderSide(
-              color: Theme.of(context).colorScheme.primary,
-              width: 2,
-            )
-          : BorderSide.none,
+          ? _buildHighlightBorderSide()
+          : _buildDefaultBorderSide(),
     );
   }
 
   Border _buildCellBorder() {
+    return Border(
+      top: node.rowIndex == 0
+          ? _buildDefaultBorderSide()
+          : _buildLightBorderSide(),
+      bottom: node.rowIndex + 1 == node.parentTableNode?.rowLength
+          ? _buildDefaultBorderSide()
+          : _buildLightBorderSide(),
+      left: node.columnIndex == 0
+          ? _buildDefaultBorderSide()
+          : _buildLightBorderSide(),
+      right: node.columnIndex + 1 == node.parentTableNode?.columnLength
+          ? _buildDefaultBorderSide()
+          : _buildLightBorderSide(),
+    );
+  }
+
+  Border _buildEditingBorder() {
     return Border.all(
-      color: context.simpleTableBorderColor,
-      strokeAlign: BorderSide.strokeAlignCenter,
+      color: Theme.of(context).colorScheme.primary,
+      width: 2,
     );
   }
 
@@ -355,43 +357,60 @@ class _SimpleTableCellBlockWidgetState extends State<SimpleTableCellBlockWidget>
     final columnIndex = node.columnIndex;
 
     return Border(
-      top: rowIndex == 0
-          ? _buildDefaultBorderSide()
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-              width: 0.5,
-            ),
+      top:
+          rowIndex == 0 ? _buildHighlightBorderSide() : _buildLightBorderSide(),
       bottom: rowIndex + 1 == node.parentTableNode?.rowLength
-          ? _buildDefaultBorderSide()
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-              width: 0.5,
-            ),
+          ? _buildHighlightBorderSide()
+          : _buildLightBorderSide(),
       left: columnIndex == 0
-          ? _buildDefaultBorderSide()
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-              width: 0.5,
-            ),
+          ? _buildHighlightBorderSide()
+          : _buildLightBorderSide(),
       right: columnIndex + 1 == node.parentTableNode?.columnLength
-          ? _buildDefaultBorderSide()
-          : BorderSide(
-              color: context.simpleTableBorderColor,
-              width: 0.5,
-            ),
+          ? _buildHighlightBorderSide()
+          : _buildLightBorderSide(),
     );
   }
 
-  BorderSide _buildDefaultBorderSide() {
+  BorderSide _buildHighlightBorderSide() {
     return BorderSide(
       color: Theme.of(context).colorScheme.primary,
       width: 2,
     );
   }
 
+  BorderSide _buildLightBorderSide() {
+    return BorderSide(
+      color: context.simpleTableBorderColor,
+      width: 0.5,
+    );
+  }
+
+  BorderSide _buildDefaultBorderSide() {
+    return BorderSide(
+      color: context.simpleTableBorderColor,
+    );
+  }
+
   void _onSelectingTableChanged() {
     if (mounted) {
       setState(() {});
+    }
+  }
+
+  void _onSelectionChanged() {
+    if (mounted) {
+      setState(() {
+        final selection = editorState.selection;
+
+        // check if the selection is in the cell
+        if (selection != null &&
+            node.path.isAncestorOf(selection.start.path) &&
+            node.path.isAncestorOf(selection.end.path)) {
+          isEditing = true;
+        } else {
+          isEditing = false;
+        }
+      });
     }
   }
 }

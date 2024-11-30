@@ -1,4 +1,4 @@
-import 'package:appflowy/plugins/document/presentation/editor_plugins/table/table_operations/table_node_extension.dart';
+import 'package:appflowy/plugins/document/presentation/editor_plugins/simple_table/simple_table.dart';
 import 'package:appflowy/util/theme_extension.dart';
 import 'package:appflowy_backend/log.dart';
 import 'package:appflowy_editor/appflowy_editor.dart';
@@ -14,6 +14,7 @@ class SimpleTableContext {
       selectingColumn.addListener(_onSelectingColumnChanged);
       selectingRow.addListener(_onSelectingRowChanged);
       isSelectingTable.addListener(_onSelectingTableChanged);
+      isHoveringOnTableBlock.addListener(_onHoveringOnTableBlockChanged);
     }
   }
 
@@ -23,6 +24,7 @@ class SimpleTableContext {
   final ValueNotifier<int?> selectingColumn = ValueNotifier(null);
   final ValueNotifier<int?> selectingRow = ValueNotifier(null);
   final ValueNotifier<bool> isSelectingTable = ValueNotifier(false);
+  final ValueNotifier<bool> isHoveringOnTableBlock = ValueNotifier(false);
 
   void _onHoveringOnTableChanged() {
     if (!enableTableDebugLog) {
@@ -69,6 +71,14 @@ class SimpleTableContext {
     Log.debug('isSelectingTable: ${isSelectingTable.value}');
   }
 
+  void _onHoveringOnTableBlockChanged() {
+    if (!enableTableDebugLog) {
+      return;
+    }
+
+    Log.debug('isHoveringOnTableBlock: ${isHoveringOnTableBlock.value}');
+  }
+
   void dispose() {
     isHoveringOnTable.dispose();
     hoveringTableCell.dispose();
@@ -76,6 +86,7 @@ class SimpleTableContext {
     selectingColumn.dispose();
     selectingRow.dispose();
     isSelectingTable.dispose();
+    isHoveringOnTableBlock.dispose();
   }
 }
 
@@ -87,9 +98,21 @@ class SimpleTableConstants {
   static const tableTopPadding = 8.0;
   static const tableLeftPadding = 8.0;
 
+  static const tableBottomPadding =
+      addRowButtonHeight + 3 * addRowButtonPadding;
+  static const tableRightPadding =
+      addColumnButtonWidth + 2 * SimpleTableConstants.addColumnButtonPadding;
+
+  static const tablePadding = EdgeInsets.only(
+    top: tableTopPadding,
+    bottom: tableBottomPadding,
+    left: tableLeftPadding,
+    right: tableRightPadding,
+  );
+
   // Add row button
   static const addRowButtonHeight = 16.0;
-  static const addRowButtonPadding = 2.0;
+  static const addRowButtonPadding = 4.0;
   static const addRowButtonRadius = 4.0;
   static const addRowButtonRightPadding =
       addColumnButtonWidth + addColumnButtonPadding * 2;
@@ -99,12 +122,13 @@ class SimpleTableConstants {
   static const addColumnButtonPadding = 2.0;
   static const addColumnButtonRadius = 4.0;
   static const addColumnButtonBottomPadding =
-      addRowButtonHeight + addRowButtonPadding * 2;
+      addRowButtonHeight + 3 * addRowButtonPadding;
 
   // Add column and row button
   static const addColumnAndRowButtonWidth = addColumnButtonWidth;
   static const addColumnAndRowButtonHeight = addRowButtonHeight;
   static const addColumnAndRowButtonCornerRadius = addColumnButtonWidth / 2.0;
+  static const addColumnAndRowButtonBottomPadding = 2.5 * addRowButtonPadding;
 
   // Table cell
   static const cellEdgePadding = EdgeInsets.symmetric(
